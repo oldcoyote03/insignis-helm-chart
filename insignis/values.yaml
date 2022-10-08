@@ -4,6 +4,96 @@
 
 replicaCount: 1
 
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+service:
+  type: ClusterIP
+  port: 80
+
+# Whether to run securely against cockroachdb using TLS certificates.
+tls:
+  enabled: true
+  serviceAccount:
+    # Specifies whether this ServiceAccount should be created.
+    create: true
+    # The name of this ServiceAccount to use.
+    # If not set and `create` is `true`, then a name is auto-generated.
+    name: ""
+  certs:
+    # Bring your own certs scenario. If provided, tls.init section will be ignored.
+    provided: false
+    # Secret name for the client root cert.
+    clientRootSecret: cockroachdb-root
+    # Enable if the secret is a dedicated TLS.
+    # TLS secrets are created by cert-mananger, for example.
+    tlsSecret: false
+    # Enable if the you want to leverage cockroach db CA certificates
+    selfSigner:
+      # If set, the cockroach db will generate its own certificates
+      enabled: true
+      # If Values.tls.enabled, the user should provide the CA certificate to custom client cert.
+      # It holds the name of the secret with caCerts.
+      caSecret: "insignis-cockroachdb-ca-secret"
+      # Minimum Certificate duration for all the certificates, all certs duration will be validated against this.
+      minimumCertDuration: 624h
+      # Duration of Client certificates in hour
+      clientCertDuration: 672h
+      # Expiry window of client certificates means a window before actual expiry in which client certs should be rotated.
+      clientCertExpiryWindow: 48h
+      # If set, the cockroachdb cert selfSigner will rotate the certificates before expiry.
+      rotateCerts: true
+      # Wait time for each cockroachdb replica to become ready once it comes in running state. Only considered when rotateCerts is set to true
+      readinessWait: 30s
+      # Wait time for each cockroachdb replica to get to running state. Only considered when rotateCerts is set to true
+      podUpdateTimeout: 2m
+  
+  selfSigner:
+    # Image Placeholder for the selfSigner utility. This will be changed once the CI workflows for the image is in place.
+    image:
+      repository: cockroachlabs-helm-charts/cockroach-self-signer-cert
+      tag: "1.3"
+      pullPolicy: IfNotPresent
+      credentials: {}
+      registry: gcr.io
+      # username: john_doe
+      # password: changeme
+
+database:
+  name: "insignis_db"
+  user: "insignis"
+
+deployment:
+  replicas: 3
+  updateStrategy:
+    type: RollingUpdate
+  podManagementPolicy: Parallel
+  budget:
+    maxUnavailable: 1
+  
+  # List of extra environment variables to pass into container
+  env: []
+    # - name: COCKROACH_ENGINE_MAX_SYNC_DURATION
+    #   value: "24h"
+  
+  # Additional labels to apply to this Deployment and all its Pods.
+  labels:
+    app.kubernetes.io/component: insignis
+  
+
+
+
+
+# Additional labels to apply to all Kubernetes resources created by this chart.
+labels: {}
+  # app.kubernetes.io/part-of: my-app
+
 image:
   repository: nginx
   pullPolicy: IfNotPresent
@@ -13,15 +103,6 @@ image:
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
-
-serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: ""
 
 podAnnotations: {}
 
@@ -35,10 +116,6 @@ securityContext: {}
   # readOnlyRootFilesystem: true
   # runAsNonRoot: true
   # runAsUser: 1000
-
-service:
-  type: ClusterIP
-  port: 80
 
 ingress:
   enabled: false

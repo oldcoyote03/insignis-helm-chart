@@ -12,14 +12,14 @@ If release name contains chart name it will be used as a full name.
 */}}
 {{- define "insignis.fullname" -}}
 {{- if .Values.fullnameOverride }}
-{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+    {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
-{{- $name := default .Chart.Name .Values.nameOverride }}
-{{- if contains $name .Release.Name }}
-{{- .Release.Name | trunc 63 | trimSuffix "-" }}
-{{- else }}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
-{{- end }}
+    {{- $name := default .Chart.Name .Values.nameOverride }}
+    {{- if contains $name .Release.Name }}
+        {{- .Release.Name | trunc 63 | trimSuffix "-" }}
+    {{- else }}
+        {{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+    {{- end }}
 {{- end }}
 {{- end }}
 
@@ -60,3 +60,46 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+
+
+{{/*
+Define the default values for the certificate selfSigner inputs
+*/}}
+{{- define "selfcerts.fullname" -}}
+  {{- printf "%s-%s" (include "insignis.fullname" .) "cockroachdb-self-signer" | trunc 56 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Validate that if caProvided is true, then the caSecret must not be empty and secret must be present in the namespace.
+*/}}
+{{- define "cockroachdb.tls.certs.selfSigner.caProvidedValidation" -}}
+{{- if eq "" .Values.tls.certs.selfSigner.caSecret -}}
+    {{ fail "CA secret can't be empty if caProvided is set to true" }}
+{{- else -}}
+    {{- if not (lookup "v1" "Secret" .Release.Namespace .Values.tls.certs.selfSigner.caSecret) }}
+        {{ fail "CA secret is not present in the release namespace" }}
+    {{- end }}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Validate that if clientCertDuration must not be empty and it must be greater than minimumCertDuration.
+*/}}
+{{- define "cockroachdb.tls.certs.selfSigner.clientCertValidation" -}}
+{{- if or (not .Values.tls.certs.selfSigner.clientCertDuration) (not .Values.tls.certs.selfSigner.clientCertExpiryWindow) }}
+  {{ fail "Client cert duration can not be empty" }}
+{{- else }}
+{{- if lt (sub (.Values.tls.certs.selfSigner.clientCertDuration | trimSuffix "h") (.Values.tls.certs.selfSigner.clientCertExpiryWindow | trimSuffix "h")) (int64 (include "selfcerts.minimumCertDuration" .)) }}
+   {{ fail "Client cert duration minus client cert expiry window should not be less than minimum Cert duration" }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Validate configurations if user will leverage cockroachdb CA cert
+*/}}
+{{- define "cockroachdb.tls.certs.selfSigner.validation" -}}
+{{ include "cockroachdb.tls.certs.selfSigner.caProvidedValidation" . }}
+{{ include "cockroachdb.tls.certs.selfSigner.clientCertValidation" . }}
+{{- end -}}
