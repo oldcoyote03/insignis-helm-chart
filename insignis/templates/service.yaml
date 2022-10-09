@@ -19,3 +19,6 @@ spec:
       targetPort: {{ .Values.service.port }}
   selector:
     {{- include "insignis.selectorLabels" . | nindent 4 }}
+  {{- with .Values.deployment.labels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}

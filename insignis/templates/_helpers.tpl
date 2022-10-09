@@ -99,6 +99,17 @@ Validate that if clientCertDuration must not be empty and it must be greater tha
 {{- end -}}
 
 {{/*
+Validate that if user enabled tls, then either self-signed certificates or certificate manager is enabled
+*/}}
+{{- define "insignis.tlsValidation" -}}
+{{- if .Values.tls.enabled -}}
+{{- if and (not .Values.tls.certs.selfSigner.enabled) (not .Values.tls.certs.provided) -}}
+    {{ fail "You have to enable either self signed certificates or provide certificates, if you have enabled tls" }}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Validate configurations if user will leverage cockroachdb CA cert
 */}}
 {{- define "cockroachdb.tls.certs.selfSigner.validation" -}}

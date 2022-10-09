@@ -1,52 +1,95 @@
-apiVersion: apps/v1
+{{ template "insignis.tlsValidation" . }}
 kind: Deployment
+apiVersion: apps/v1
 metadata:
   name: {{ include "insignis.fullname" . }}
   labels:
     {{- include "insignis.labels" . | nindent 4 }}
-spec:
-  {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
+  {{- with .Values.deployment.labels }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
+  {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.deployment.autoscaling.enabled }}
+  replicas: {{ .Values.deployment.replicas | int64 }}
+  {{- end }}
+  updateStrategy: {{- toYaml .Values.deployment.updateStrategy | nindent 4 }}
+  podManagementPolicy: {{ .Values.deployment.podManagementPolicy | quote }}
   selector:
     matchLabels:
       {{- include "insignis.selectorLabels" . | nindent 6 }}
+    {{- with .Values.deployment.labels }}
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
   template:
     metadata:
+      labels:
+        {{- include "insignis.selectorLabels" . | nindent 8 }}
+      {{- with .Values.deployment.labels }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.labels }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      labels:
-        {{- include "insignis.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "insignis.serviceAccountName" . }}
-      securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      serviceAccountName: {{ include "insignis.tls.serviceAccount.name" . }}
+      {{- if .Values.tls.enabled }}
+      volumes:
+        - name: {{ .Values.database.user . }}-client-certs
+          {{- if or .Values.tls.certs.selfSigner.enabled .Values.tls.certs.tlsSecret }}
+          projected:
+            sources:
+              - secret:
+                {{- if .Values.tls.certs.selfSigner.enabled }}
+                name: {{ .Values.database.user . }}-client-secret
+                {{ else }}
+                name: {{ .Values.tls.certs.clientRootSecret }}
+                {{ end -}}
+                items:
+                  - key: ca.crt
+                    path: ca.crt
+                  - key: tls.crt
+                    path: client.{{ .Values.database.user . }}.crt
+                  - key: tls.key
+                    path: client.{{ .Values.database.user . }}.key
+            defaultMode: 256
+          {{- else }}
+          secret:
+            secretName: {{ .Values.tls.certs.clientRootSecret }}
+            defaultMode: 256
+      {{- end }}
       containers:
-        - name: {{ .Chart.Name }}
+        - name: api
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - name: http
-              containerPort: 80
-              protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /
-              port: http
-          readinessProbe:
-            httpGet:
-              path: /
-              port: http
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            - containerPort: {{ .Values.service.port }}
+          volumeMounts:
+            - name: {{ include .Values.database.user . }}-client-certs
+              mountPath: /cockroach-certs
+          env:
+            - name: SQLALCHEMY_DATABASE_URI
+              value: "cockroachdb://{{ .Values.database.user . }}@{{ .Chart.Name . }}-cockroachdb-public:26257/{{ .Values.database.name . }}?sslmode=verify-full&sslcert=/cockroach-certs/client.{{ .Values.database.user . }}.crt&sslkey=/cockroach-certs/client.{{ .Values.database.user . }}.key&sslrootcert=/cockroach-certs/ca.crt"
+            - name: DEPLOYMENT_FQDN
+              value: {{ include "insignis.fullname" . }}.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}
+          {{- with .Values.deployment.env }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- with .Values.resources }}
+          resources: {{- toYaml . | nindent 12 }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
