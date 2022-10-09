@@ -4,18 +4,9 @@
 
 replicaCount: 1
 
-serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: ""
-
 service:
-  type: ClusterIP
-  port: 80
+  type: LoadBalancer
+  port: 5000
 
 # Whether to run securely against cockroachdb using TLS certificates.
 tls:
@@ -36,9 +27,10 @@ tls:
     tlsSecret: false
     # Enable if the you want to leverage cockroach db CA certificates
     selfSigner:
-      # If set, the cockroach db will generate its own certificates
+      # If set, the cockroachdb has generated its own certificates.
+      # The CA certificate will be used to generate the provisioned app user client certificate.
       enabled: true
-      # If Values.tls.enabled, the user should provide the CA certificate to custom client cert.
+      # If Values.tls.selfSigner.enabled, the user should provide the cockroachdb generated CA certificate.
       # It holds the name of the secret with caCerts.
       caSecret: "insignis-cockroachdb-ca-secret"
       # Minimum Certificate duration for all the certificates, all certs duration will be validated against this.

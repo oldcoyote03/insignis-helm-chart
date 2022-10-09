@@ -53,21 +53,23 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "insignis.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "insignis.fullname" .) .Values.serviceAccount.name }}
+{{- define "insignis.tls.serviceAccount.name" -}}
+{{- if .Values.tls.serviceAccount.create }}
+    {{- default (include "insignis.fullname" .) .Values.tls.serviceAccount.name }}
 {{- else }}
-{{- default "default" .Values.serviceAccount.name }}
+    {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
-
-
 
 {{/*
 Define the default values for the certificate selfSigner inputs
 */}}
 {{- define "selfcerts.fullname" -}}
   {{- printf "%s-%s" (include "insignis.fullname" .) "cockroachdb-self-signer" | trunc 56 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "rotatecerts.fullname" -}}
+  {{- printf "%s-%s" (include "insignis.fullname" .) "rotate-self-signer" | trunc 56 | trimSuffix "-" -}}
 {{- end -}}
 
 {{/*
