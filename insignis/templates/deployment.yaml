@@ -81,7 +81,11 @@ spec:
               mountPath: /cockroach-certs
           env:
             - name: SQLALCHEMY_DATABASE_URI
+              {{- if .Values.tls.enabled }}
               value: "cockroachdb://{{ .Values.database.user . }}@{{ .Chart.Name . }}-cockroachdb-public:26257/{{ .Values.database.name . }}?sslmode=verify-full&sslcert=/cockroach-certs/client.{{ .Values.database.user . }}.crt&sslkey=/cockroach-certs/client.{{ .Values.database.user . }}.key&sslrootcert=/cockroach-certs/ca.crt"
+              {{- else }}
+              value: "cockroachdb://root@{{ .Chart.Name . }}-cockroachdb-public:26257/{{ .Values.database.name . }}?sslmode=disable
+              {{- end }}
             - name: DEPLOYMENT_FQDN
               value: {{ include "insignis.fullname" . }}.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}
           {{- with .Values.deployment.env }}
