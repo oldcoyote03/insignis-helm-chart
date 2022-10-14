@@ -8,7 +8,7 @@ service:
 
 # Whether to run securely against cockroachdb using TLS certificates.
 tls:
-  enabled: true
+  enabled: false
   serviceAccount:
     # Specifies whether this ServiceAccount should be created.
     create: true
