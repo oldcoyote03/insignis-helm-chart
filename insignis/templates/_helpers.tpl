@@ -72,6 +72,53 @@ Define the default values for the certificate selfSigner inputs
   {{- printf "%s-%s" (include "insignis.fullname" .) "rotate-self-signer" | trunc 56 | trimSuffix "-" -}}
 {{- end -}}
 
+{{- define "selfcerts.minimumCertDuration" -}}
+  {{- if .Values.tls.certs.selfSigner.minimumCertDuration -}}
+    {{- print (.Values.tls.certs.selfSigner.minimumCertDuration | trimSuffix "h") -}}
+  {{- else }}
+    {{- $minCertDuration := min (sub (.Values.tls.certs.selfSigner.clientCertDuration | trimSuffix "h" ) (.Values.tls.certs.selfSigner.clientCertExpiryWindow | trimSuffix "h")) (sub (.Values.tls.certs.selfSigner.nodeCertDuration | trimSuffix "h") (.Values.tls.certs.selfSigner.nodeCertExpiryWindow | trimSuffix "h")) -}}
+    {{- print $minCertDuration -}}
+  {{- end }}
+{{- end -}}
+
+{{/*
+Define the cron schedules for certificate rotate jobs and converting from hours to valid cron string.
+We assume that each month has 31 days, hence the cron job may run few days earlier in a year. In a cron schedule,
+we can not set a cron of more than a year, hence we try to run the cron in such a way that the cron run comes to
+as close possible to the expiry window. However, it is possible that cron may run earlier than the expiry window.
+*/}}
+{{- define "selfcerts.clientRotateSchedule" -}}
+{{- $tempHours := int64 (include "selfcerts.minimumCertDuration" .) -}}
+{{- $days := "*" -}}
+{{- $months := "*" -}}
+{{- $hours := mod $tempHours 24 -}}
+{{- if not (eq $hours $tempHours) -}}
+{{- $tempDays := div $tempHours 24 -}}
+{{- $days = mod $tempDays 31 -}}
+{{- if not (eq $days $tempDays) -}}
+{{- $days = add $days 1 -}}
+{{- $tempMonths := div $tempDays 31 -}}
+{{- $months = mod $tempMonths 12 -}}
+{{- if not (eq $months $tempMonths) -}}
+{{- $months = add $months 1 -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if ne (toString $months) "*" -}}
+{{- $months = printf "*/%s" (toString $months) -}}
+{{- else -}}
+{{- if ne (toString $days) "*" -}}
+{{- $days = printf "*/%s" (toString $days) -}}
+{{- else -}}
+{{- if ne $hours 0 -}}
+{{- $hours = printf "*/%s" (toString $hours) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- printf "0 %s %s %s *" (toString $hours) (toString $days) (toString $months) -}}
+{{- end -}}
+
+
 {{/*
 Validate that if caProvided is true, then the caSecret must not be empty and secret must be present in the namespace.
 */}}

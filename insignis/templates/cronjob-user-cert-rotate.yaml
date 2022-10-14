@@ -1,0 +1,44 @@
+{{- if and .Values.tls.enabled .Values.tls.certs.selfSigner.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "rotatecerts.fullname" . }}
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "insignis.labels" . | nindent 4 }}
+  {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  schedule: {{ include "selfcerts.clientRotateSchedule" . }}
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: cert-rotate-job-flask
+            image: "{{ .Values.tls.selfSigner.image.registry }}/{{ .Values.tls.selfSigner.image.repository }}:{{ .Values.tls.selfSigner.image.tag }}"
+            imagePullPolicy: "{{ .Values.tls.selfSigner.image.pullPolicy }}"
+            args:
+            - rotate
+            {{- if .Values.tls.certs.selfSigner.caProvided }}
+            - --ca-secret={{ .Values.tls.certs.selfSigner.caSecret }}
+            {{- else }}
+            - --ca-duration={{ .Values.tls.certs.selfSigner.caCertDuration }}
+            - --ca-expiry={{ .Values.tls.certs.selfSigner.caCertExpiryWindow }}
+            {{- end }}
+            - --client
+            - --client-duration={{ .Values.tls.certs.selfSigner.clientCertDuration }}
+            - --client-expiry={{ .Values.tls.certs.selfSigner.clientCertExpiryWindow }}
+            - --node-client-cron={{ template "selfcerts.clientRotateSchedule" . }}
+            - --readiness-wait={{ .Values.tls.certs.selfSigner.readinessWait }}
+            - --pod-update-timeout={{ .Values.tls.certs.selfSigner.podUpdateTimeout }}
+            env:
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+            - name: USER_NAME
+              value: {{ .Values.database.user . }}
+          serviceAccountName: {{ include "rotatecerts.fullname" . }}
+{{- end }}

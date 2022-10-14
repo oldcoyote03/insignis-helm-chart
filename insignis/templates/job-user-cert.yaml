@@ -31,6 +31,8 @@ spec:
           image: "{{ .Values.tls.selfSigner.image.registry }}/{{ .Values.tls.selfSigner.image.repository }}:{{ .Values.tls.selfSigner.image.tag }}"
           imagePullPolicy: "{{ .Values.tls.selfSigner.image.pullPolicy }}"
           args:
+            # generate with client-only flag creates a secret with name:
+            # ${USER_NAME}-client-secret
             - generate
             - --client-only
             - --ca-secret={{ .Values.tls.certs.selfSigner.caSecret }}
