@@ -16,4 +16,5 @@ rules:
     verbs: ["get"]
     {{- else }}
     verbs: ["create", "get"]
+    {{- end }}
 {{- end }}

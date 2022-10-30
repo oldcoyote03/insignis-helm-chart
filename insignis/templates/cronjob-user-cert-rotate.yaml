@@ -39,6 +39,6 @@ spec:
             - name: NAMESPACE
               value: {{ .Release.Namespace }}
             - name: USER_NAME
-              value: {{ .Values.database.user . }}
+              value: {{ .Values.database.user }}
           serviceAccountName: {{ include "rotatecerts.fullname" . }}
 {{- end }}

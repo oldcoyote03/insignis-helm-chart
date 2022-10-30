@@ -30,7 +30,7 @@ tls:
       enabled: true
       # If Values.tls.selfSigner.enabled, the user should provide the cockroachdb generated CA certificate.
       # It holds the name of the secret with caCerts.
-      caSecret: "insignis-cockroachdb-ca-secret"
+      caSecret: insignis-cockroachdb-ca-secret
       # Minimum Certificate duration for all the certificates, all certs duration will be validated against this.
       minimumCertDuration: 624h
       # Duration of Client certificates in hour
@@ -61,9 +61,11 @@ database:
 
 deployment:
   replicas: 3
-  updateStrategy:
+  strategy:
     type: RollingUpdate
-  podManagementPolicy: Parallel
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
   budget:
     maxUnavailable: 1
   

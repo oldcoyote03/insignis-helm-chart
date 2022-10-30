@@ -127,6 +127,7 @@ Validate that if caProvided is true, then the caSecret must not be empty and sec
     {{ fail "CA secret can't be empty if caProvided is set to true" }}
 {{- else -}}
     {{- if not (lookup "v1" "Secret" .Release.Namespace .Values.tls.certs.selfSigner.caSecret) }}
+        {{ printf "CA secret is not present in the release namespace: %s" ( .Values.tls.certs.selfSigner.caSecret ) | fail -}}
         {{ fail "CA secret is not present in the release namespace" }}
     {{- end }}
 {{- end -}}
