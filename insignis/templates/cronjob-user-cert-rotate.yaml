@@ -23,12 +23,7 @@ spec:
             imagePullPolicy: "{{ .Values.tls.selfSigner.image.pullPolicy }}"
             args:
             - rotate
-            {{- if .Values.tls.certs.selfSigner.caProvided }}
             - --ca-secret={{ .Values.tls.certs.selfSigner.caSecret }}
-            {{- else }}
-            - --ca-duration={{ .Values.tls.certs.selfSigner.caCertDuration }}
-            - --ca-expiry={{ .Values.tls.certs.selfSigner.caCertExpiryWindow }}
-            {{- end }}
             - --client
             - --client-duration={{ .Values.tls.certs.selfSigner.clientCertDuration }}
             - --client-expiry={{ .Values.tls.certs.selfSigner.clientCertExpiryWindow }}
