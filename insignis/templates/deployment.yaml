@@ -1,0 +1,114 @@
+{{- template "insignis.tlsValidation" . -}}
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: {{ include "insignis.fullname" . }}
+  labels:
+    {{- include "insignis.labels" . | nindent 4 }}
+  {{- with .Values.deployment.labels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.deployment.autoscaling.enabled }}
+  replicas: {{ .Values.deployment.replicas | int64 }}
+  {{- end }}
+  {{- if .Values.deployment.strategy }}
+  strategy: {{- toYaml .Values.deployment.strategy | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "insignis.selectorLabels" . | nindent 6 }}
+    {{- with .Values.deployment.labels }}
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "insignis.selectorLabels" . | nindent 8 }}
+      {{- with .Values.deployment.labels }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.labels }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.tls.enabled }}
+      serviceAccountName: {{ include "insignis.tls.serviceAccount.name" . }}
+      volumes:
+        - name: {{ .Values.database.user }}-client-certs
+          {{- if or .Values.tls.certs.selfSigner.enabled .Values.tls.certs.tlsSecret }}
+          projected:
+            sources:
+              - secret:
+                  {{- if .Values.tls.certs.selfSigner.enabled }}
+                  name: {{ .Values.database.user }}-client-secret
+                  {{ else }}
+                  name: {{ .Values.tls.certs.clientRootSecret }}
+                  {{ end -}}
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+                    - key: tls.crt
+                      path: client.{{ .Values.database.user }}.crt
+                    - key: tls.key
+                      path: client.{{ .Values.database.user }}.key
+            defaultMode: 256
+          {{- else }}
+          secret:
+            secretName: {{ .Values.tls.certs.clientRootSecret }}
+            defaultMode: 256
+          {{- end }}
+      {{- end }}
+      containers:
+        - name: api
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          {{- if .Values.tls.enabled }}
+          volumeMounts:
+            - name: {{ .Values.database.user }}-client-certs
+              mountPath: /cockroach-certs
+          {{- end }}
+          env:
+            - name: SQLALCHEMY_DATABASE_URI
+              {{- if .Values.tls.enabled }}
+              value: "cockroachdb://{{ .Values.database.user }}@{{ .Chart.Name }}-cockroachdb-public:26257/{{ .Values.database.name }}?sslmode=verify-full&sslcert=/cockroach-certs/client.{{ .Values.database.user }}.crt&sslkey=/cockroach-certs/client.{{ .Values.database.user }}.key&sslrootcert=/cockroach-certs/ca.crt"
+              {{- else }}
+              value: "cockroachdb://root@{{ .Chart.Name }}-cockroachdb-public:26257/{{ .Values.database.name }}?sslmode=disable"
+              {{- end }}
+            - name: DEPLOYMENT_FQDN
+              value: {{ include "insignis.fullname" . }}.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}
+          {{- with .Values.deployment.env }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- with .Values.resources }}
+          resources: {{- toYaml . | nindent 12 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
