@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# ./push-img.sh -t v0.11 -c
+
 while getopts t:c flag
 do
     case "${flag}" in
